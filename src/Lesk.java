@@ -18,8 +18,13 @@ import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
 import edu.stanford.nlp.util.logging.RedwoodConfiguration;
+import edu.stanford.nlp.pipeline.*;
+import edu.stanford.nlp.ling.CoreAnnotations.PartOfSpeechAnnotation;
 
 public class Lesk {
+
+	//keynote: testCorpus, ambiguousLocations and groundTruths = arrayList
+
 
 	/** 
 	 * Each entry is a sentence where there is at least a word to be disambiguate.
@@ -72,6 +77,68 @@ public class Lesk {
 	private Set<String> stopwords;
 	
 	public Lesk() {
+
+		/**
+		 * The constructor initializes any WordNet/NLP tools and reads the stopwords.
+		 */
+
+		//read the stopwords from /data/stopwords.txt
+
+		stopwords = new HashSet<String>();
+
+		String fileName = "/data/stopwords.txt";
+
+		String line = null;
+
+		try {
+			// FileReader reads text files in the default encoding.
+			FileReader fileReader =
+					new FileReader(fileName);
+
+			// Always wrap FileReader in BufferedReader.
+			BufferedReader bufferedReader =
+					new BufferedReader(fileReader);
+
+			while((line = bufferedReader.readLine()) != null) {
+//				System.out.println(line);
+				stopwords.add(line);
+			}
+
+			// Always close files.
+			bufferedReader.close();
+		}
+		catch(FileNotFoundException ex) {
+			System.out.println(
+					"Unable to open file '" +
+							fileName + "'");
+		}
+		catch(IOException ex) {
+			System.out.println(
+					"Error reading file '"
+							+ fileName + "'");
+			// Or we could just do this:
+			// ex.printStackTrace();
+		}
+
+
+		//initializes any WordNet/NLP tools
+		//ref:https://stanfordnlp.github.io/CoreNLP/api.html
+
+		// creates a StanfordCoreNLP object, with POS tagging, lemmatization, NER, parsing, and coreference resolution
+		Properties props = new Properties();
+		props.setProperty("annotators", "tokenize, ssplit, pos, lemma, ner, parse, dcoref");
+//		StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
+		pipeline = new StanfordCoreNLP(props);  //globe private verib
+
+		// read some text in the text variable
+//		String text = "...";
+
+		// create an empty Annotation just with the given text
+//		Annotation document = new Annotation(text);
+
+		// run all Annotators on this text
+//		pipeline.annotate(document);
+
 	}
 	
 	/**
@@ -95,8 +162,127 @@ public class Lesk {
 	/**
 	 * This function fills up testCorpus, ambiguousLocations and groundTruths lists
 	 * @param filename
+	 * example
+	 * #2 further ADV further%4:02:02::,further%4:02:03::
 	 */
 	public void readTestData(String filename) throws Exception {
+		String line = null;
+
+		try {
+			// FileReader reads text files in the default encoding.
+			FileReader fileReader =
+					new FileReader(filename);
+
+			// Always wrap FileReader in BufferedReader.
+			BufferedReader bufferedReader =
+					new BufferedReader(fileReader);
+
+			// read some text in the text variable
+			String text = "...";
+
+//			// create an empty Annotation just with the given text
+//			Annotation document = new Annotation(text);
+
+//			// run all Annotators on this text
+//			pipeline.annotate(document);
+
+//			int line_counter = 0;
+
+			//Interpreting the output to testCorpus, ambiguousLocations and groundTruths lists
+			while((line = bufferedReader.readLine()) != null) {
+
+				/**
+				 * read the first line
+				 * example :The Fulton County Grand Jury said Friday an investigation of Atlanta 's recent primary election produced " no evidence " that any irregularities took place .
+				 */
+//				if(line_counter == 0){
+
+					// create an empty Annotation just with the given text
+					Annotation document = new Annotation(line);
+					// run all Annotators on this text
+					pipeline.annotate(document);
+
+					// these are all the sentences in this document
+					// a CoreMap is essentially a Map that uses class objects as keys and has values with custom types
+					List<CoreMap> sentences = document.get(SentencesAnnotation.class);
+
+					for(CoreMap sentence: sentences) {
+						//only one line of sentence
+
+						// traversing the words in the current sentence
+						// a CoreLabel is a CoreMap with additional token-specific methods
+						Sentence all_word = new Sentence();
+						for (CoreLabel token : sentence.get(TokensAnnotation.class)) {
+							// this is the text of the token
+							String w = token.get(TextAnnotation.class);
+							Word word = new Word(w);
+							all_word.addWord(word);
+
+							// this is the POS tag of the token
+//						String pos = token.get(PartOfSpeechAnnotation.class);
+//						// this is the NER label of the token
+//						String ne = token.get(NamedEntityTagAnnotation.class);
+						}
+						testCorpus.add(all_word);
+					}
+//				}
+
+				/**
+				 * read the the ambiguous word number
+				 */
+				int number = Integer.parseInt(bufferedReader.readLine());
+
+                /**
+                 * read the the ambiguous word list [location, targets, groundTruth]
+                 */
+
+                ArrayList<Integer> locations = new ArrayList<>();
+                ArrayList<Pair<String, String>> targets = new ArrayList<>();
+                ArrayList<String> ground_truth = new ArrayList<>();
+
+				for (int i = 0; i < number; ++i){
+				    String read_ambiguous = bufferedReader.readLine();
+
+                    String[] read_in = read_ambiguous.split(" ");
+                    // read_in[0] = location
+                    // read_in[1] + read_in[2] = targets <word, POS>
+                    // read_in[3] = ground Truth
+
+
+
+                    locations.add(Integer.parseInt(read_in[0]));
+                    ground_truth.add(read_in[3]);
+
+                    targets.add(new Pair<>(read_in[1], read_in[2]));
+                }
+
+                /**
+                 * ArrayList<ArrayList<Integer> > ambiguousLocations
+                 * ArrayList<ArrayList<Pair<String, String> > > ambiguousWords
+                 * ArrayList<ArrayList<String> > groundTruths
+                 */
+
+                ambiguousLocations.add(locations);
+                ambiguousWords.add(targets);
+                groundTruths.add(ground_truth);
+//				}
+//				line_counter++;
+			}
+			// Always close files.
+			bufferedReader.close();
+		}
+		catch(FileNotFoundException ex) {
+			System.out.println(
+					"Unable to open file '" +
+							fileName + "'");
+		}
+		catch(IOException ex) {
+			System.out.println(
+					"Error reading file '"
+							+ fileName + "'");
+			// Or we could just do this:
+			// ex.printStackTrace();
+		}
 	}
 	
 	/**
